@@ -648,3 +648,46 @@ describe('App loading state', () => {
     expect(w.text()).not.toContain('読み込み中…')
   })
 })
+
+describe('App shared site nav', () => {
+  it('shows the seven shared nav items and no count by default', async () => {
+    const w = await mountApp()
+    const labels = w.findAll('.site-nav ul li').map((li) => li.text())
+    expect(labels).toEqual([
+      'トップ',
+      'プロフィール',
+      '活動・発信',
+      '情報交換',
+      'ブログ',
+      '持ち物リスト',
+      '川口の歌 ♪',
+    ])
+    expect(
+      w.findAll('.site-nav li.nav-section').map((li) => li.text()),
+    ).toEqual(['プロフィール', '活動・発信', '情報交換'])
+    expect(w.find('.music-play-count').exists()).toBe(false)
+    // The app header itself is untouched.
+    expect(w.find('.header h1').text()).toBe('持ち物管理')
+  })
+
+  it('fills in the play count when music-count.json has one', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url, opts) => {
+        if (String(url).includes('music-count.json')) {
+          return { ok: true, json: async () => ({ count: 85, updated_at: 't' }) }
+        }
+        const body = JSON.parse(opts.body)
+        calls.push(body)
+        return { json: async () => handler(body) }
+      }),
+    )
+    const w = await mountApp()
+    const count = w.find('.music-play-count')
+    expect(count.exists()).toBe(true)
+    expect(count.text()).toBe('85回再生')
+    expect(
+      w.find('.site-nav a[href="https://freddiefujiwara.com/music"]').text(),
+    ).toBe('川口の歌 ♪85回再生')
+  })
+})

@@ -18,6 +18,7 @@ import {
   formatShareRemaining,
   shareSecondsLeft,
 } from './share.js'
+import { fetchMusicPlayCount, formatMusicPlayCount } from './utils/musicCount.js'
 
 const admin = useAdmin()
 const {
@@ -35,6 +36,11 @@ const {
 } = admin
 
 const tab = ref('list')
+
+// Cumulative 川口の歌 play count for the shared site nav, read from
+// the top site's music-count.json. Stays null (and renders nothing)
+// until a valid count arrives; any failure keeps it hidden.
+const musicPlayCount = ref(null)
 const themeButton = ref(null)
 const theme = ref(resolveTheme(localStorage.getItem(THEME_KEY)))
 
@@ -258,6 +264,13 @@ const initGoogleSignIn = () => {
 
 onMounted(async () => {
   applyCurrentTheme()
+  // The play count is independent of the sign-in flow: fetch it in
+  // parallel and fill the nav in when (and only when) it succeeds.
+  fetchMusicPlayCount().then((count) => {
+    if (count !== null) {
+      musicPlayCount.value = count
+    }
+  })
   if (await admin.initFromHash(window.location.hash)) {
     return
   }
@@ -275,6 +288,18 @@ const onLogout = () => {
 
 <template>
   <div class="layout">
+    <nav class="site-nav">
+      <a class="brand" href="https://freddiefujiwara.com/">藤原史和｜川口を歩くQAエンジニア</a>
+      <ul>
+        <li><a href="https://freddiefujiwara.com/">トップ</a></li>
+        <li class="nav-section"><a href="https://freddiefujiwara.com/#about">プロフィール</a></li>
+        <li class="nav-section"><a href="https://freddiefujiwara.com/#activity">活動・発信</a></li>
+        <li class="nav-section"><a href="https://freddiefujiwara.com/#contact">情報交換</a></li>
+        <li><a href="https://freddiefujiwara.com/blog/">ブログ</a></li>
+        <li><a href="https://freddiefujiwara.com/list-of-stuff/">持ち物リスト</a></li>
+        <li><a href="https://freddiefujiwara.com/music">川口の歌 ♪<span v-if="musicPlayCount !== null" class="music-play-count">{{ formatMusicPlayCount(musicPlayCount) }}</span></a></li>
+      </ul>
+    </nav>
     <header class="header">
       <h1>持ち物管理</h1>
       <div class="header-actions">
