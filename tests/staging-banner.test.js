@@ -35,7 +35,7 @@ describe("showStagingBanner", () => {
       "/alarm/staging/",
       "/health/staging/",
       "/asset/staging/",
-      "/ga/staging/",
+      "/social/staging/",
     ]);
   });
 
