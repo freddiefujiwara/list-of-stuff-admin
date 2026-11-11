@@ -37,6 +37,9 @@ const SUBSCRIPTIONS = [
 ]
 
 const defaultHandler = (body) => {
+  if (body.action === 'exchange_session') {
+    return { ok: true, session_token: 'sess-token', expires_at: '2026-12-11T00:00:00.000Z' }
+  }
   if (body.action === 'list_genres') {
     return { ok: true, genres: ['衣料', '住まい'] }
   }
@@ -126,6 +129,17 @@ describe('App gate and sign-in', () => {
     delete window.google
     const w = await mountApp()
     expect(w.text()).toContain('Googleログインが必要です')
+  })
+
+  it('restores a saved session without showing the Google gate', async () => {
+    localStorage.setItem('list-of-stuff-admin-session-token', 'saved-token')
+    localStorage.setItem('list-of-stuff-admin-session-email', 'owner@example.com')
+    const w = await mountApp()
+    expect(w.text()).not.toContain('Googleログインが必要です')
+    expect(w.text()).toContain('owner@example.com')
+    expect(w.text()).toContain('Workman A')
+    expect(calls[0]).toMatchObject({ action: 'list_items', session_token: 'saved-token' })
+    expect(window.google.accounts.id.initialize).not.toHaveBeenCalled()
   })
 
   it('signs in and lists the items of the first sheet', async () => {

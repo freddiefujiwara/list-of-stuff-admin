@@ -3,11 +3,19 @@ import { API_URL, SHEETS, sheetKind } from '../constants/app.js'
 import { callApi } from '../api.js'
 import { decodeJwtPayload } from '../auth.js'
 import { parseShareToken } from '../share.js'
+import {
+  loadSavedSessionToken,
+  loadSavedSessionEmail,
+  saveSessionToken,
+  saveSessionEmail,
+  clearSavedSession,
+} from '../session.js'
 
 // State and API orchestration for the admin page, mirroring the alarm
-// site's main.js: the owner's Google ID token or a share token from a
-// temporary access link authenticates every call, and a share-auth
-// failure moves the page to the expired-link state.
+// site's main.js: the owner's session token (exchanged from the
+// Google ID token at sign-in) or a share token from a temporary
+// access link authenticates every call, and a share-auth failure
+// moves the page to the expired-link state.
 export function useAdmin() {
   const phase = ref('gate') // 'gate' | 'ready' | 'share-expired'
   const email = ref('')
@@ -22,7 +30,7 @@ export function useAdmin() {
   const listStatus = ref('')
   const gateError = ref('')
 
-  let idToken = null
+  let sessionToken = null
   let shareToken = null
 
   const isShareError = (res) =>
@@ -33,12 +41,21 @@ export function useAdmin() {
         res.error.includes('share session'),
     )
 
+  const isSessionError = (res) =>
+    Boolean(sessionToken && res && res.error === 'session expired or invalid')
+
   const api = async (body) => {
     const res = shareToken
       ? await callApi(API_URL, null, { ...body, share_token: shareToken })
-      : await callApi(API_URL, idToken, body)
+      : await callApi(API_URL, null, { ...body, session_token: sessionToken })
     if (isShareError(res)) {
       phase.value = 'share-expired'
+    } else if (isSessionError(res)) {
+      // The saved owner session is dead (expired or revoked): drop
+      // it and return to the sign-in gate.
+      sessionToken = null
+      clearSavedSession()
+      phase.value = 'gate'
     } else if (res && res._share) {
       shareExpiresAt.value = res._share.expires_at
     }
@@ -179,20 +196,57 @@ export function useAdmin() {
     } catch {
       email.value = ''
     }
-    idToken = credential
     gateError.value = ''
-    phase.value = 'ready'
-    const res = await loadItems()
-    await loadGenres()
-    if (!res.ok && res.status) {
+    // Exchange the (1-hour) ID token for a 30-day owner session and
+    // save that, so the next visit restores the session instead of
+    // starting at the gate.
+    let res
+    try {
+      res = await callApi(API_URL, credential, { action: 'exchange_session' })
+    } catch {
+      res = null
+    }
+    if (!res || !res.ok || !res.session_token) {
       phase.value = 'gate'
       gateError.value = 'このアカウントでは利用できません'
-      idToken = null
+      return
     }
+    sessionToken = res.session_token
+    saveSessionToken(sessionToken)
+    saveSessionEmail(email.value)
+    phase.value = 'ready'
+    await loadItems()
+    await loadGenres()
+  }
+
+  // Restore a saved owner session at boot, without a Google sign-in.
+  // Returns false when there is no saved session, or when the saved
+  // session turned out to be dead (the load drops back to the gate).
+  const restoreSession = async () => {
+    const saved = loadSavedSessionToken()
+    if (!saved) {
+      return false
+    }
+    sessionToken = saved
+    email.value = loadSavedSessionEmail()
+    phase.value = 'ready'
+    await loadItems()
+    await loadGenres()
+    return phase.value === 'ready'
   }
 
   const logout = () => {
-    idToken = null
+    const endingSession = sessionToken
+    sessionToken = null
+    clearSavedSession()
+    if (endingSession) {
+      // Revoke the owner session server-side; local logout proceeds
+      // regardless of the outcome.
+      callApi(API_URL, null, {
+        action: 'revoke_session',
+        session_token: endingSession,
+      }).catch(() => {})
+    }
     email.value = ''
     phase.value = 'gate'
   }
@@ -253,9 +307,11 @@ export function useAdmin() {
     return res
   }
 
-  const issueShare = async () => callApi(API_URL, idToken, { action: 'issue_share' })
+  const issueShare = async () =>
+    callApi(API_URL, null, { action: 'issue_share', session_token: sessionToken })
 
-  const revokeShare = async () => callApi(API_URL, idToken, { action: 'revoke_share' })
+  const revokeShare = async () =>
+    callApi(API_URL, null, { action: 'revoke_share', session_token: sessionToken })
 
   return {
     phase,
@@ -272,6 +328,7 @@ export function useAdmin() {
     gateError,
     initFromHash,
     onCredential,
+    restoreSession,
     logout,
     loadItems,
     loadGenres,
