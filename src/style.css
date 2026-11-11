@@ -451,6 +451,15 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.item-link {
+  color: var(--link);
+  text-decoration: none;
+}
+
+.item-link:hover {
+  text-decoration: underline;
+}
+
 .form-label {
   display: block;
   margin: 10px 0 4px;

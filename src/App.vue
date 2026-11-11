@@ -427,7 +427,7 @@ const onLogout = () => {
           <div v-for="entry in visibleCombined" :key="`${entry.sheet}:${entry.row}`" class="alarm-row" :class="{ flagged: Boolean(entry.flag) }">
             <div v-if="entry.kind === 'subscriptions'" class="item-main">
               <div>
-                <div class="item-title">{{ entry.service }}<span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
+                <div class="item-title"><a v-if="entry.url" class="item-link" :href="entry.url" target="_blank" rel="noopener noreferrer">{{ entry.service }}</a><template v-else>{{ entry.service }}</template><span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
                 <div v-if="entry.purpose" class="alarm-commands">{{ entry.purpose }}</div>
                 <div class="alarm-commands">{{ subscriptionCost(entry) }}</div>
                 <div v-if="entry.url" class="alarm-commands">{{ entry.url }}</div>
@@ -442,7 +442,7 @@ const onLogout = () => {
                 @error="onThumbError"
               />
               <div>
-                <div class="item-title">{{ entry.title }}<span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
+                <div class="item-title"><a v-if="entry.url" class="item-link" :href="entry.url" target="_blank" rel="noopener noreferrer">{{ entry.title }}</a><template v-else>{{ entry.title }}</template><span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
                 <div class="alarm-commands">{{ itemMeta(entry) }}</div>
                 <div v-if="entry.url" class="alarm-commands">{{ entry.url }}</div>
               </div>
@@ -473,7 +473,7 @@ const onLogout = () => {
                 @error="onThumbError"
               />
               <div>
-                <div class="item-title">{{ item.title }}<span v-if="item.flag" class="flag-badge">整理対象</span></div>
+                <div class="item-title"><a v-if="item.url" class="item-link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a><template v-else>{{ item.title }}</template><span v-if="item.flag" class="flag-badge">整理対象</span></div>
                 <div class="alarm-commands">{{ itemMeta(item) }}</div>
                 <div v-if="item.url" class="alarm-commands">{{ item.url }}</div>
               </div>
@@ -517,7 +517,7 @@ const onLogout = () => {
           <div v-for="sub in visibleSubscriptions" :key="sub.row" class="alarm-row" :class="{ flagged: Boolean(sub.flag) }">
             <div class="item-main">
               <div>
-                <div class="item-title">{{ sub.service }}<span v-if="sub.flag" class="flag-badge">整理対象</span></div>
+                <div class="item-title"><a v-if="sub.url" class="item-link" :href="sub.url" target="_blank" rel="noopener noreferrer">{{ sub.service }}</a><template v-else>{{ sub.service }}</template><span v-if="sub.flag" class="flag-badge">整理対象</span></div>
                 <div v-if="sub.purpose" class="alarm-commands">{{ sub.purpose }}</div>
                 <div class="alarm-commands">{{ subscriptionCost(sub) }}</div>
                 <div v-if="sub.url" class="alarm-commands">{{ sub.url }}</div>

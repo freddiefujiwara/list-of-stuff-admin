@@ -882,3 +882,54 @@ describe('App cross-sheet view', () => {
     expect(calls[calls.length - 1]).toMatchObject({ action: 'list_items', sheet: 'workman' })
   })
 })
+
+describe('App product links', () => {
+  const sheetPill = (w, label) =>
+    w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === label)
+  const titleLinkOf = (w, rowText) =>
+    w
+      .findAll('.alarm-row')
+      .find((r) => r.text().includes(rowText))
+      .find('.item-title a')
+
+  it('links an item title to its product URL in a new tab', async () => {
+    const w = await mountApp()
+    await signIn()
+    const link = titleLinkOf(w, 'Workman A')
+    expect(link.text()).toBe('Workman A')
+    expect(link.attributes('href')).toBe('https://example.com/a')
+    expect(link.attributes('target')).toBe('_blank')
+  })
+
+  it('leaves the title plain when the item has no URL', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'その他').trigger('click')
+    await flushPromises()
+    const row = w.findAll('.alarm-row').find((r) => r.text().includes('Other C'))
+    expect(row.find('.item-title a').exists()).toBe(false)
+  })
+
+  it('links subscription names, and only when a URL is present', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'サブスク').trigger('click')
+    await flushPromises()
+    expect(titleLinkOf(w, 'NHK').attributes('href')).toBe('https://www.nhk.or.jp/')
+    const dazn = w.findAll('.alarm-row').find((r) => r.text().includes('DAZN'))
+    expect(dazn.find('.item-title a').exists()).toBe(false)
+  })
+
+  it('links titles in the combined view too', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'すべて').trigger('click')
+    await flushPromises()
+    expect(titleLinkOf(w, 'Room Lamp').attributes('href')).toBe(
+      'https://room.rakuten.co.jp/freddiefujiwara/111'
+    )
+    expect(titleLinkOf(w, 'NHK').attributes('href')).toBe('https://www.nhk.or.jp/')
+    const other = w.findAll('.alarm-row').find((r) => r.text().includes('Other C'))
+    expect(other.find('.item-title a').exists()).toBe(false)
+  })
+})
