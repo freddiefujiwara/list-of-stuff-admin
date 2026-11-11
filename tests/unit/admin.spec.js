@@ -2,16 +2,28 @@ import { describe, expect, it } from 'vitest'
 import {
   emptyItem,
   emptySubscription,
+  filterFlagged,
   formFromSubscription,
   subscriptionCost,
   formFromItem,
   formatPrice,
+  isFlagged,
   itemMeta,
   shareLinkView,
   sheetLabel,
 } from '../../src/utils/admin.js'
 
 describe('admin utils', () => {
+  it('detects the tidy-up flag and filters by it', () => {
+    expect(isFlagged({ flag: '整理対象' })).toBe(true)
+    expect(isFlagged({ flag: '' })).toBe(false)
+    expect(isFlagged({})).toBe(false)
+    expect(isFlagged(null)).toBe(false)
+    const list = [{ flag: '整理対象' }, { flag: '' }, {}]
+    expect(filterFlagged(list, true)).toEqual([{ flag: '整理対象' }])
+    expect(filterFlagged(list, false)).toBe(list)
+  })
+
 it('builds a blank subscription form with the yearly basis', () => {
     expect(emptySubscription()).toEqual({ service: '', purpose: '', basis: 'yearly', amount: '', url: '' })
   })
@@ -49,7 +61,8 @@ it('builds a blank subscription form with the yearly basis', () => {
     expect(sheetLabel('workman')).toBe('ワークマン')
     expect(sheetLabel('variety')).toBe('ダイソー・100均')
     expect(sheetLabel('others')).toBe('その他')
-    expect(sheetLabel('room')).toBe('room')
+    expect(sheetLabel('room')).toBe('楽天ROOM')
+    expect(sheetLabel('unknown-key')).toBe('unknown-key')
   })
 
   it('formatPrice formats numbers and hides blanks', () => {

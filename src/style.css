@@ -326,6 +326,17 @@ textarea {
   border-color: var(--link);
 }
 
+.flag-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--link);
+  border-radius: 999px;
+  color: var(--link);
+  font-size: 11px;
+  vertical-align: 1px;
+}
+
 .exec-block {
   margin-top: 6px;
 }

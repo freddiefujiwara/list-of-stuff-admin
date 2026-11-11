@@ -86,6 +86,18 @@ export function shareLinkView(issued, baseUrl, nowMs) {
   }
 }
 
+// An entry carries the tidy-up flag when its flag cell is filled
+// (the sheet stores the text 整理対象 there).
+export function isFlagged(entry) {
+  return Boolean(entry && entry.flag)
+}
+
+// The list filter behind the 整理対象のみ toggle: pass-through
+// unless the filter is on.
+export function filterFlagged(entries, flaggedOnly) {
+  return flaggedOnly ? entries.filter((entry) => isFlagged(entry)) : entries
+}
+
 // A blank subscription form (create mode). The basis defaults to the
 // yearly side, the sheet's most common shape.
 export function emptySubscription() {

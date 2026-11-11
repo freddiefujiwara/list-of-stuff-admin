@@ -182,6 +182,23 @@ export function useAdmin() {
     return res
   }
 
+  // Flag or unflag an entry as a tidy-up target. Room entries are
+  // keyed by their URL because the ROOM sync owns that sheet and
+  // rewrites its rows; everything else is keyed by row. Like a
+  // delete, the list is always re-read afterwards so the screen
+  // matches the stored flag even when the call failed partway.
+  const setFlag = async (entry, flagged) => {
+    const body = { action: 'set_flag', sheet: currentSheet.value, flagged }
+    if (currentSheet.value === 'room') {
+      body.url = entry.url
+    } else {
+      body.row = entry.row
+    }
+    const res = await api(body)
+    await loadItems()
+    return res
+  }
+
   // After a delete the list is always re-read, whatever the outcome,
   // so the screen matches the sheet even when the delete itself
   // failed partway.
@@ -220,6 +237,7 @@ export function useAdmin() {
     createItem,
     updateItem,
     deleteItem,
+    setFlag,
     issueShare,
     revokeShare,
   }
