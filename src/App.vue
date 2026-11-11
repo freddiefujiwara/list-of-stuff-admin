@@ -293,6 +293,9 @@ onMounted(async () => {
   if (await admin.initFromHash(window.location.hash)) {
     return
   }
+  if (await admin.restoreSession()) {
+    return
+  }
   window.addEventListener('load', initGoogleSignIn, { once: true })
 })
 

@@ -28,6 +28,8 @@ const routeFetch = (handler) => {
 }
 
 const okHandler = (body) => {
+  if (body.action === 'exchange_session')
+    return { ok: true, session_token: 'sess-token', expires_at: '2026-12-11T00:00:00.000Z' }
   if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
   if (body.action === 'issue_share')
     return { ok: true, share_token: 'tok', expires_at: '2026-12-07T00:00:00.000Z' }
@@ -37,6 +39,7 @@ const okHandler = (body) => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  localStorage.clear()
 })
 
 describe('useAdmin', () => {
@@ -54,8 +57,12 @@ describe('useAdmin', () => {
     expect(admin.email.value).toBe('owner@example.com')
     expect(admin.items.value).toEqual(ITEMS)
     expect(admin.listStatus.value).toBe('1件')
-    expect(calls[0]).toMatchObject({ action: 'list_items', sheet: 'workman' })
+    expect(calls[0]).toMatchObject({ action: 'exchange_session' })
     expect(calls[0].idToken).toContain('.')
+    expect(calls[1]).toMatchObject({ action: 'list_items', sheet: 'workman' })
+    expect(calls[1].session_token).toBe('sess-token')
+    expect(localStorage.getItem('list-of-stuff-admin-session-token')).toBe('sess-token')
+    expect(localStorage.getItem('list-of-stuff-admin-session-email')).toBe('owner@example.com')
   })
 
   it('returns to the gate when the server rejects the account', async () => {
@@ -267,9 +274,11 @@ describe('useAdmin', () => {
 
   it('reloads the list after a delete even when the delete fails', async () => {
     const calls = routeFetch((body) =>
-      body.action === 'list_items'
-        ? { ok: true, sheet: body.sheet, items: ITEMS }
-        : { ok: false, error: 'row out of range: 9' },
+      body.action === 'exchange_session'
+        ? { ok: true, session_token: 'sess-token' }
+        : body.action === 'list_items'
+          ? { ok: true, sheet: body.sheet, items: ITEMS }
+          : { ok: false, error: 'row out of range: 9' },
     )
     const admin = useAdmin()
     await admin.onCredential(credential({ email: 'owner@example.com' }))
@@ -280,9 +289,11 @@ describe('useAdmin', () => {
 
   it('does not reload after a failed create', async () => {
     const calls = routeFetch((body) =>
-      body.action === 'list_items'
-        ? { ok: true, sheet: body.sheet, items: ITEMS }
-        : { ok: false, error: 'nope' },
+      body.action === 'exchange_session'
+        ? { ok: true, session_token: 'sess-token' }
+        : body.action === 'list_items'
+          ? { ok: true, sheet: body.sheet, items: ITEMS }
+          : { ok: false, error: 'nope' },
     )
     const admin = useAdmin()
     await admin.onCredential(credential({ email: 'owner@example.com' }))
@@ -319,6 +330,7 @@ describe('useAdmin', () => {
 
   it('loads the genre options after sign-in', async () => {
     routeFetch((body) => {
+      if (body.action === 'exchange_session') return { ok: true, session_token: 'sess-token' }
       if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
       if (body.action === 'list_genres') return { ok: true, genres: ['【衣】服にまつわる物', '【住】暮らしにまつわる物'] }
       return { ok: true }
@@ -330,6 +342,7 @@ describe('useAdmin', () => {
 
   it('keeps genres empty when the genre call fails or throws', async () => {
     routeFetch((body) => {
+      if (body.action === 'exchange_session') return { ok: true, session_token: 'sess-token' }
       if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
       if (body.action === 'list_genres') throw new Error('down')
       return { ok: true }
@@ -382,7 +395,7 @@ describe('useAdmin', () => {
     await admin.onCredential(credential({ email: 'owner@example.com' }))
     const issued = await admin.issueShare()
     expect(issued.share_token).toBe('tok')
-    expect(calls.find((c) => c.action === 'issue_share').idToken).toContain('.')
+    expect(calls.find((c) => c.action === 'issue_share').session_token).toBe('sess-token')
     const revoked = await admin.revokeShare()
     expect(revoked.revoked).toBe(true)
   })
@@ -395,12 +408,88 @@ describe('useAdmin', () => {
     expect(admin.phase.value).toBe('gate')
     expect(admin.email.value).toBe('')
   })
+
+  it('stays on the gate when the exchange returns no session token', async () => {
+    routeFetch((body) =>
+      body.action === 'exchange_session' ? { ok: true } : okHandler(body),
+    )
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    expect(admin.phase.value).toBe('gate')
+    expect(admin.gateError.value).toBe('このアカウントでは利用できません')
+  })
+
+  it('stays on the gate when the exchange request itself fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    expect(admin.phase.value).toBe('gate')
+    expect(admin.gateError.value).toBe('このアカウントでは利用できません')
+  })
+
+  it('restores a saved session without a Google sign-in', async () => {
+    const calls = routeFetch(okHandler)
+    localStorage.setItem('list-of-stuff-admin-session-token', 'saved-token')
+    localStorage.setItem('list-of-stuff-admin-session-email', 'owner@example.com')
+    const admin = useAdmin()
+    expect(await admin.restoreSession()).toBe(true)
+    expect(admin.phase.value).toBe('ready')
+    expect(admin.email.value).toBe('owner@example.com')
+    expect(admin.items.value).toEqual(ITEMS)
+    expect(calls[0]).toMatchObject({ action: 'list_items', session_token: 'saved-token' })
+  })
+
+  it('reports no session when nothing was saved', async () => {
+    routeFetch(okHandler)
+    const admin = useAdmin()
+    expect(await admin.restoreSession()).toBe(false)
+    expect(admin.phase.value).toBe('gate')
+  })
+
+  it('drops a saved session that the server no longer accepts', async () => {
+    routeFetch(() => ({ ok: false, status: 401, error: 'session expired or invalid' }))
+    localStorage.setItem('list-of-stuff-admin-session-token', 'dead-token')
+    const admin = useAdmin()
+    expect(await admin.restoreSession()).toBe(false)
+    expect(admin.phase.value).toBe('gate')
+    expect(localStorage.getItem('list-of-stuff-admin-session-token')).toBeNull()
+  })
+
+  it('revokes the session on logout and clears the saved copy', async () => {
+    const calls = routeFetch(okHandler)
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    admin.logout()
+    expect(calls.find((c) => c.action === 'revoke_session')).toMatchObject({
+      session_token: 'sess-token',
+    })
+    expect(localStorage.getItem('list-of-stuff-admin-session-token')).toBeNull()
+  })
+
+  it('logs out without a revoke call when there is no session', async () => {
+    const calls = routeFetch(okHandler)
+    const admin = useAdmin()
+    admin.logout()
+    expect(admin.phase.value).toBe('gate')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('still logs out when the revoke request fails', async () => {
+    routeFetch(okHandler)
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
+    admin.logout()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(admin.phase.value).toBe('gate')
+  })
 })
 
 describe('useAdmin read retries', () => {
   it('retries a read that fails at the transport level, then succeeds', async () => {
     let listCalls = 0
     routeFetch((body) => {
+      if (body.action === 'exchange_session') return { ok: true, session_token: 'sess-token' }
       if (body.action === 'list_items') {
         listCalls++
         if (listCalls <= 2) throw new Error('Failed to fetch')
@@ -418,6 +507,7 @@ describe('useAdmin read retries', () => {
   it('gives up after three attempts and reports the failure', async () => {
     let listCalls = 0
     routeFetch((body) => {
+      if (body.action === 'exchange_session') return { ok: true, session_token: 'sess-token' }
       if (body.action === 'list_items') {
         listCalls++
         throw new Error('Failed to fetch')
@@ -434,6 +524,7 @@ describe('useAdmin read retries', () => {
   it('does not retry a business error', async () => {
     let listCalls = 0
     routeFetch((body) => {
+      if (body.action === 'exchange_session') return { ok: true, session_token: 'sess-token' }
       if (body.action === 'list_items') {
         listCalls++
         return { ok: false, error: 'sheet is not editable: room' }
@@ -449,6 +540,7 @@ describe('useAdmin read retries', () => {
   it('retries the genre read once and still fills the options', async () => {
     let genreCalls = 0
     routeFetch((body) => {
+      if (body.action === 'exchange_session') return { ok: true, session_token: 'sess-token' }
       if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
       if (body.action === 'list_genres') {
         genreCalls++
