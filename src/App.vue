@@ -378,7 +378,7 @@ const onLogout = () => {
       <section v-if="phase === 'ready' && tab === 'list'" class="table-wrap">
         <div class="section-head">
           <h2 class="section-title">{{ listTitle }}</h2>
-          <button class="theme-toggle" type="button" @click="admin.loadItems()">再読み込み</button>
+          <button class="theme-toggle" type="button" @click="admin.reload()">再読み込み</button>
         </div>
         <p v-if="notice" class="meta">{{ notice }}</p>
         <p v-if="shareBanner" class="meta">{{ shareBanner }}</p>
