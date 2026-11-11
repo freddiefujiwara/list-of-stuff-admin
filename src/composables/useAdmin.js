@@ -334,14 +334,16 @@ export function useAdmin() {
 
   // After a delete the list is always re-read, whatever the outcome,
   // so the screen matches the sheet even when the delete itself
-  // failed partway.
-  const deleteItem = async (row) => {
+  // failed partway. The sheet can be named explicitly so a row can
+  // be deleted from the cross-sheet view, where the current sheet
+  // is 'all' rather than the entry's own sheet.
+  const deleteItem = async (row, sheet = currentSheet.value) => {
     const res = await api({
       action: 'delete_item',
-      sheet: currentSheet.value,
+      sheet,
       row,
     })
-    sheetCache.delete(currentSheet.value)
+    sheetCache.delete(sheet)
     await loadItems()
     return res
   }

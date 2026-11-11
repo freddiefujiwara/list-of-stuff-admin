@@ -809,6 +809,18 @@ describe('App cross-sheet view', () => {
       .find((r) => r.text().includes(rowText))
       .findAll('button')
       .find((b) => b.attributes('aria-label') === '整理対象フラグ')
+  const rowButtonLabels = (w, rowText) =>
+    w
+      .findAll('.alarm-row')
+      .find((r) => r.text().includes(rowText))
+      .findAll('button')
+      .map((b) => b.attributes('aria-label'))
+  const actionButtonOf = (w, rowText, label) =>
+    w
+      .findAll('.alarm-row')
+      .find((r) => r.text().includes(rowText))
+      .findAll('button')
+      .find((b) => b.attributes('aria-label') === label)
 
   it('lists every sheet in one list with source badges', async () => {
     const w = await mountApp()
@@ -823,11 +835,11 @@ describe('App cross-sheet view', () => {
     expect(w.findAll('.flag-badge')).toHaveLength(2)
     expect(w.findAll('.alarm-row.flagged')).toHaveLength(2)
     expect(w.text()).toContain('7件')
-    // the combined view is for viewing and flagging: no edit or
-    // delete buttons anywhere
-    const labels = w.findAll('button').map((b) => b.attributes('aria-label'))
-    expect(labels).not.toContain('編集')
-    expect(labels).not.toContain('削除')
+    // ROOM rows stay flag-only (the ROOM sync owns that sheet);
+    // every other entry also offers edit and delete
+    expect(rowButtonLabels(w, 'Room Lamp')).toEqual(['整理対象フラグ'])
+    expect(rowButtonLabels(w, 'Workman A')).toEqual(['整理対象フラグ', '編集', '削除'])
+    expect(rowButtonLabels(w, 'NHK')).toEqual(['整理対象フラグ', '編集', '削除'])
   })
 
   it('flags entries through their own sheet from the combined view', async () => {
@@ -856,6 +868,39 @@ describe('App cross-sheet view', () => {
       row: 2,
       flagged: true,
     })
+  })
+
+  it('edits an entry through its own sheet from the combined view', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'すべて').trigger('click')
+    await flushPromises()
+    await actionButtonOf(w, 'Other C', '編集').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('アイテムを編集')
+    await w.findAll('button').find((b) => b.text() === '更新する').trigger('click')
+    await flushPromises()
+    expect(calls.filter((c) => c.action === 'update_item')[0]).toMatchObject({
+      sheet: 'others',
+      row: 2,
+    })
+    // saving returns to the cross-sheet view
+    expect(w.text()).toContain('すべての持ち物・サブスクリプション')
+  })
+
+  it('deletes an entry through its own sheet from the combined view', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'すべて').trigger('click')
+    await flushPromises()
+    await actionButtonOf(w, 'Workman A', '削除').trigger('click')
+    await flushPromises()
+    expect(calls.filter((c) => c.action === 'delete_item')[0]).toMatchObject({
+      sheet: 'workman',
+      row: 2,
+    })
+    expect(w.text()).toContain('すべての持ち物・サブスクリプション')
   })
 
   it('narrows the combined list to flagged entries across all sheets', async () => {
