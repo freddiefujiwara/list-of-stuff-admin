@@ -683,6 +683,9 @@ describe('App tidy-up flags', () => {
     const lampRow = w.findAll('.alarm-row').find((r) => r.text().includes('Room Lamp'))
     const labels = lampRow.findAll('button').map((b) => b.attributes('aria-label'))
     expect(labels).toEqual(['整理対象フラグ'])
+    expect(lampRow.classes()).toContain('flagged')
+    const bagRow = w.findAll('.alarm-row').find((r) => r.text().includes('Room Bag'))
+    expect(bagRow.classes()).not.toContain('flagged')
   })
 
   it('flags a room item by URL, never by row', async () => {
@@ -802,6 +805,7 @@ describe('App cross-sheet view', () => {
     }
     expect(w.findAll('.sheet-badge')).toHaveLength(7)
     expect(w.findAll('.flag-badge')).toHaveLength(2)
+    expect(w.findAll('.alarm-row.flagged')).toHaveLength(2)
     expect(w.text()).toContain('7件')
     // the combined view is for viewing and flagging: no edit or
     // delete buttons anywhere

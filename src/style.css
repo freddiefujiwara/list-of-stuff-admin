@@ -12,6 +12,7 @@
   --link: #93c5fd;
   --link-active: #ffffff;
   --error: #fca5a5;
+  --flag: #f59e0b;
 }
 
 :root[data-theme="light"] {
@@ -25,6 +26,7 @@
   --link: #1d4ed8;
   --link-active: #0f172a;
   --error: #b91c1c;
+  --flag: #d97706;
 }
 
 * {
@@ -279,6 +281,14 @@ textarea {
   padding: 10px 0;
 }
 
+/* A flagged （整理対象） row stands out at a glance: an amber wash
+   over the whole row plus a thick bar on the left edge. */
+.alarm-row.flagged {
+  background: color-mix(in srgb, var(--flag) 14%, transparent);
+  box-shadow: inset 4px 0 0 var(--flag);
+  padding-left: 10px;
+}
+
 .alarm-time {
   font-weight: 700;
   white-space: nowrap;
@@ -330,11 +340,18 @@ textarea {
   display: inline-block;
   margin-left: 6px;
   padding: 0 6px;
-  border: 1px solid var(--link);
+  border: 1px solid var(--flag);
   border-radius: 999px;
-  color: var(--link);
+  background: var(--flag);
+  color: #1f2937;
   font-size: 11px;
+  font-weight: 700;
   vertical-align: 1px;
+}
+
+.icon-btn.flag-btn.active {
+  color: var(--flag);
+  border-color: var(--flag);
 }
 
 .sheet-badge {

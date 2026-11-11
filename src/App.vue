@@ -421,7 +421,7 @@ const onLogout = () => {
         </div>
         <template v-else>
         <div v-if="currentSheet === 'all'">
-          <div v-for="entry in visibleCombined" :key="`${entry.sheet}:${entry.row}`" class="alarm-row">
+          <div v-for="entry in visibleCombined" :key="`${entry.sheet}:${entry.row}`" class="alarm-row" :class="{ flagged: Boolean(entry.flag) }">
             <div v-if="entry.kind === 'subscriptions'" class="item-main">
               <div>
                 <div class="item-title">{{ entry.service }}<span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
@@ -447,7 +447,7 @@ const onLogout = () => {
             <div class="row-actions">
               <button
                 type="button"
-                class="icon-btn"
+                class="icon-btn flag-btn"
                 :class="{ active: Boolean(entry.flag) }"
                 title="整理対象"
                 aria-label="整理対象フラグ"
@@ -460,7 +460,7 @@ const onLogout = () => {
           </div>
         </div>
         <div v-else-if="sheetKind(currentSheet) !== 'subscriptions'">
-          <div v-for="item in visibleItems" :key="item.row" class="alarm-row">
+          <div v-for="item in visibleItems" :key="item.row" class="alarm-row" :class="{ flagged: Boolean(item.flag) }">
             <div class="item-main">
               <img
                 class="item-thumb"
@@ -478,7 +478,7 @@ const onLogout = () => {
             <div class="row-actions">
               <button
                 type="button"
-                class="icon-btn"
+                class="icon-btn flag-btn"
                 :class="{ active: Boolean(item.flag) }"
                 title="整理対象"
                 aria-label="整理対象フラグ"
@@ -511,7 +511,7 @@ const onLogout = () => {
           </div>
         </div>
         <div v-else>
-          <div v-for="sub in visibleSubscriptions" :key="sub.row" class="alarm-row">
+          <div v-for="sub in visibleSubscriptions" :key="sub.row" class="alarm-row" :class="{ flagged: Boolean(sub.flag) }">
             <div class="item-main">
               <div>
                 <div class="item-title">{{ sub.service }}<span v-if="sub.flag" class="flag-badge">整理対象</span></div>
@@ -523,7 +523,7 @@ const onLogout = () => {
             <div class="row-actions">
               <button
                 type="button"
-                class="icon-btn"
+                class="icon-btn flag-btn"
                 :class="{ active: Boolean(sub.flag) }"
                 title="整理対象"
                 aria-label="整理対象フラグ"
