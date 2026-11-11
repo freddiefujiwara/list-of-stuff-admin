@@ -366,6 +366,24 @@ describe('useAdmin', () => {
     expect(calls.filter((c) => c.action === 'list_items')).toHaveLength(2)
   })
 
+  it('deletes from an explicitly named sheet', async () => {
+    const calls = routeFetch((body) =>
+      body.action === 'exchange_session'
+        ? { ok: true, session_token: 'sess-token' }
+        : body.action === 'list_items'
+          ? { ok: true, sheet: body.sheet, items: ITEMS }
+          : { ok: true },
+    )
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    const res = await admin.deleteItem(4, 'others')
+    expect(res.ok).toBe(true)
+    expect(calls.filter((c) => c.action === 'delete_item')[0]).toMatchObject({
+      sheet: 'others',
+      row: 4,
+    })
+  })
+
   it('does not reload after a failed create', async () => {
     const calls = routeFetch((body) =>
       body.action === 'exchange_session'

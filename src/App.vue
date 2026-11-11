@@ -66,6 +66,10 @@ const isSubForm = computed(() => sheetKind(currentSheet.value) === 'subscription
 const blankForm = () => (isSubForm.value ? emptySubscription() : emptyItem())
 const form = ref(emptyItem())
 const editingRow = ref(null)
+// True while an edit opened from the cross-sheet (すべて) view is
+// in flight: the form works on the entry's own sheet and returns
+// to the cross-sheet view when it closes.
+const editFromAll = ref(false)
 const formStatus = ref('')
 const saving = ref(false)
 const notice = ref('')
@@ -103,17 +107,32 @@ const openCreate = async () => {
   tab.value = 'form'
 }
 
-const openEdit = (entry) => {
+const openEdit = async (entry) => {
+  // The form is bound to one sheet, so an edit opened from the
+  // cross-sheet view first moves to the entry's own sheet; closing
+  // the form then returns to the cross-sheet view.
+  editFromAll.value = currentSheet.value === ALL_TAB.key
+  if (editFromAll.value) {
+    await admin.selectSheet(entry.sheet)
+  }
   editingRow.value = entry.row
   form.value = isSubForm.value ? formFromSubscription(entry) : formFromItem(entry)
   formStatus.value = ''
   tab.value = 'form'
 }
 
-const cancelEdit = () => {
+const backToAllIfNeeded = async () => {
+  if (editFromAll.value) {
+    editFromAll.value = false
+    await admin.selectSheet(ALL_TAB.key)
+  }
+}
+
+const cancelEdit = async () => {
   editingRow.value = null
   form.value = blankForm()
   formStatus.value = ''
+  await backToAllIfNeeded()
   tab.value = 'list'
 }
 
@@ -145,6 +164,7 @@ const submit = async () => {
     if (res.ok) {
       editingRow.value = null
       form.value = blankForm()
+      await backToAllIfNeeded()
       tab.value = 'list'
     } else {
       formStatus.value = res.error || '保存に失敗しました'
@@ -157,12 +177,14 @@ const submit = async () => {
 }
 
 const remove = async (entry) => {
-  const name =
-    sheetKind(currentSheet.value) === 'subscriptions' ? entry.service : entry.title
+  // Combined-view entries carry their own sheet and kind; per-sheet
+  // rows fall back to the current sheet.
+  const sheet = entry.sheet || currentSheet.value
+  const name = sheet === 'subscriptions' ? entry.service : entry.title
   if (!window.confirm(`「${name}」を削除しますか？`)) {
     return
   }
-  const res = await admin.deleteItem(entry.row)
+  const res = await admin.deleteItem(entry.row, sheet)
   notice.value = res.ok ? '削除しました' : res.error || '削除に失敗しました'
 }
 
@@ -178,6 +200,7 @@ const removeFromForm = async () => {
     editingRow.value = null
     form.value = blankForm()
     formStatus.value = ''
+    await backToAllIfNeeded()
     tab.value = 'list'
   } else {
     formStatus.value = res.error || '削除に失敗しました'
@@ -458,6 +481,26 @@ const onLogout = () => {
                 @click="toggleFlag(entry)"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+              </button>
+              <button
+                v-if="entry.sheet !== 'room'"
+                type="button"
+                class="icon-btn"
+                title="編集"
+                aria-label="編集"
+                @click="openEdit(entry)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
+              </button>
+              <button
+                v-if="entry.sheet !== 'room'"
+                type="button"
+                class="icon-btn"
+                title="削除"
+                aria-label="削除"
+                @click="remove(entry)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
           </div>
