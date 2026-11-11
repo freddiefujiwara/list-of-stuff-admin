@@ -131,6 +131,32 @@ describe('useAdmin', () => {
     expect(calls.filter((c) => c.action === 'list_items').length).toBe(before + 3)
   })
 
+  it('sets a flag by row and reloads the list', async () => {
+    const calls = routeFetch(okHandler)
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    const before = calls.filter((c) => c.action === 'list_items').length
+    const res = await admin.setFlag({ row: 2 }, true)
+    expect(res.ok).toBe(true)
+    const sent = calls.find((c) => c.action === 'set_flag')
+    expect(sent).toMatchObject({ sheet: 'workman', row: 2, flagged: true })
+    expect(sent.url).toBeUndefined()
+    expect(calls.filter((c) => c.action === 'list_items').length).toBe(before + 1)
+  })
+
+  it('sets a room flag by URL and reloads the list', async () => {
+    const calls = routeFetch(okHandler)
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.selectSheet('room')
+    const before = calls.filter((c) => c.action === 'list_items').length
+    await admin.setFlag({ url: 'https://room.example/1' }, false)
+    const sent = calls.find((c) => c.action === 'set_flag')
+    expect(sent).toMatchObject({ sheet: 'room', url: 'https://room.example/1', flagged: false })
+    expect(sent.row).toBeUndefined()
+    expect(calls.filter((c) => c.action === 'list_items').length).toBe(before + 1)
+  })
+
   it('surfaces a failed update without reloading', async () => {
     routeFetch((body) =>
       body.action === 'list_items'

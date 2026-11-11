@@ -19,6 +19,10 @@ const ITEMS_BY_SHEET = {
   others: [
     { row: 2, title: 'Other C', image: '', url: '', price: '', unit: '', genre: '旧ジャンル', comment: '' },
   ],
+  room: [
+    { row: 2, title: 'Room Lamp', image: '', url: 'https://room.rakuten.co.jp/freddiefujiwara/111', price: 3000, unit: 1, genre: '家電にまつわる物', comment: '', flag: '整理対象' },
+    { row: 3, title: 'Room Bag', image: '', url: 'https://room.rakuten.co.jp/freddiefujiwara/222', price: 500, unit: 1, genre: '暮らしにまつわる物', comment: '' },
+  ],
 }
 
 let calls
@@ -27,7 +31,7 @@ let gisCallback
 let wrapper
 
 const SUBSCRIPTIONS = [
-  { row: 2, service: 'NHK', purpose: 'テレビ', yearly: 21765, monthly: 1814, ratio: 0.015, url: 'https://www.nhk.or.jp/', basis: 'yearly' },
+  { row: 2, service: 'NHK', purpose: 'テレビ', yearly: 21765, monthly: 1814, ratio: 0.015, url: 'https://www.nhk.or.jp/', basis: 'yearly', flag: '整理対象' },
   { row: 3, service: 'DAZN', purpose: '野球', yearly: 27600, monthly: 2300, ratio: 0.019, url: '', basis: 'monthly' },
   { row: 4, service: 'PurposeLess', purpose: '', yearly: 3000, monthly: 250, ratio: '', url: '', basis: 'yearly' },
 ]
@@ -136,11 +140,11 @@ describe('App gate and sign-in', () => {
 })
 
 describe('App list interactions', () => {
-  it('shows the four sheet tabs with their short labels', async () => {
+  it('shows the five sheet tabs with their short labels', async () => {
     const w = await mountApp()
     await signIn()
     const tabs = w.findAll('.sheet-tabs .builder-tab')
-    expect(tabs.map((t) => t.text())).toEqual(['ワークマン', 'ダイソー', 'その他', 'サブスク'])
+    expect(tabs.map((t) => t.text())).toEqual(['ワークマン', 'ダイソー', 'その他', 'ROOM', 'サブスク'])
   })
 
   it('switches sheets and reloads', async () => {
@@ -455,7 +459,7 @@ describe('App v2: genre dropdown, form delete, subscriptions', () => {
     const w = await mountApp()
     await signIn()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    await w.findAll('.icon-btn')[0].trigger('click')
+    await w.findAll('button').find((b) => b.attributes('aria-label') === '編集').trigger('click')
     const deleteButton = w.findAll('button').find((b) => b.text() === '削除する')
     expect(deleteButton).toBeTruthy()
     await deleteButton.trigger('click')
@@ -471,7 +475,7 @@ describe('App v2: genre dropdown, form delete, subscriptions', () => {
     const w = await mountApp()
     await signIn()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    await w.findAll('.icon-btn')[0].trigger('click')
+    await w.findAll('button').find((b) => b.attributes('aria-label') === '編集').trigger('click')
     const deleteButton = w.findAll('button').find((b) => b.text() === '削除する')
     await deleteButton.trigger('click')
     await flushPromises()
@@ -482,8 +486,8 @@ describe('App v2: genre dropdown, form delete, subscriptions', () => {
   it('lists subscriptions on their pill with the cost line', async () => {
     const w = await mountApp()
     await signIn()
-    const pills = w.findAll('.builder-tab')
-    await pills[pills.length - 1].trigger('click')
+    const subPill = w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === 'サブスク')
+    await subPill.trigger('click')
     await flushPromises()
     expect(w.text()).toContain('登録中のサブスクリプション')
     expect(w.text()).toContain('NHK')
@@ -514,11 +518,11 @@ describe('App v2: genre dropdown, form delete, subscriptions', () => {
   it('edits a subscription with its basis amount prefilled', async () => {
     const w = await mountApp()
     await signIn()
-    const pills = w.findAll('.builder-tab')
-    await pills[pills.length - 1].trigger('click')
+    const subPill = w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === 'サブスク')
+    await subPill.trigger('click')
     await flushPromises()
-    const editButtons = w.findAll('.icon-btn')
-    await editButtons[2].trigger('click')
+    const editButtons = w.findAll('button').filter((b) => b.attributes('aria-label') === '編集')
+    await editButtons[1].trigger('click')
     expect(w.find('#f-service').element.value).toBe('DAZN')
     expect(w.find('#f-amount').element.value).toBe('2300')
     const basisTabs = w.findAll('.builder-tab')
@@ -539,7 +543,7 @@ describe('App v2 coverage: fallbacks and remaining branches', () => {
     const pills = w.findAll('.builder-tab')
     await pills[2].trigger('click')
     await flushPromises()
-    await w.findAll('.icon-btn')[0].trigger('click')
+    await w.findAll('button').find((b) => b.attributes('aria-label') === '編集').trigger('click')
     const select = w.find('#f-genre')
     expect(select.element.value).toBe('旧ジャンル')
     expect(select.findAll('option').map((o) => o.text())).toEqual(['衣料', '住まい', '旧ジャンル'])
@@ -571,8 +575,8 @@ describe('App v2 coverage: fallbacks and remaining branches', () => {
   it('deletes a subscription from the list', async () => {
     const w = await mountApp()
     await signIn()
-    const pills = w.findAll('.builder-tab')
-    await pills[pills.length - 1].trigger('click')
+    const subPill = w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === 'サブスク')
+    await subPill.trigger('click')
     await flushPromises()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     await w.findAll('button').find((b) => b.attributes('aria-label') === '削除').trigger('click')
@@ -585,7 +589,7 @@ describe('App v2 coverage: fallbacks and remaining branches', () => {
     const w = await mountApp()
     await signIn()
     vi.spyOn(window, 'confirm').mockReturnValue(false)
-    await w.findAll('.icon-btn')[0].trigger('click')
+    await w.findAll('button').find((b) => b.attributes('aria-label') === '編集').trigger('click')
     const deleteButton = w.findAll('button').find((b) => b.text() === '削除する')
     await deleteButton.trigger('click')
     await flushPromises()
@@ -596,10 +600,10 @@ describe('App v2 coverage: fallbacks and remaining branches', () => {
   it('deletes a subscription from its edit form', async () => {
     const w = await mountApp()
     await signIn()
-    const pills = w.findAll('.builder-tab')
-    await pills[pills.length - 1].trigger('click')
+    const subPill = w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === 'サブスク')
+    await subPill.trigger('click')
     await flushPromises()
-    await w.findAll('.icon-btn')[0].trigger('click')
+    await w.findAll('button').find((b) => b.attributes('aria-label') === '編集').trigger('click')
     expect(w.text()).toContain('サブスクリプションを編集')
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const deleteButton = w.findAll('button').find((b) => b.text() === '削除する')
@@ -614,7 +618,7 @@ describe('App v2 coverage: fallbacks and remaining branches', () => {
     const w = await mountApp()
     await signIn()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    await w.findAll('.icon-btn')[0].trigger('click')
+    await w.findAll('button').find((b) => b.attributes('aria-label') === '編集').trigger('click')
     const deleteButton = w.findAll('button').find((b) => b.text() === '削除する')
     await deleteButton.trigger('click')
     await flushPromises()
@@ -646,5 +650,136 @@ describe('App loading state', () => {
     await flushPromises()
     expect(w.text()).toContain('Other C')
     expect(w.text()).not.toContain('読み込み中…')
+  })
+})
+
+describe('App tidy-up flags', () => {
+  const sheetPill = (w, label) =>
+    w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === label)
+  const flagButtonOf = (w, rowText) =>
+    w
+      .findAll('.alarm-row')
+      .find((r) => r.text().includes(rowText))
+      .findAll('button')
+      .find((b) => b.attributes('aria-label') === '整理対象フラグ')
+
+  it('flags an item by row from the list', async () => {
+    const w = await mountApp()
+    await signIn()
+    await flagButtonOf(w, 'Workman A').trigger('click')
+    await flushPromises()
+    expect(calls.find((c) => c.action === 'set_flag')).toMatchObject({
+      sheet: 'workman',
+      row: 2,
+      flagged: true,
+    })
+  })
+
+  it('lists ROOM items read-only, with the badge on the flagged one', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'ROOM').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Room Lamp')
+    expect(w.text()).toContain('Room Bag')
+    expect(w.findAll('.flag-badge')).toHaveLength(1)
+    const lampRow = w.findAll('.alarm-row').find((r) => r.text().includes('Room Lamp'))
+    const labels = lampRow.findAll('button').map((b) => b.attributes('aria-label'))
+    expect(labels).toEqual(['整理対象フラグ'])
+  })
+
+  it('flags a room item by URL, never by row', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'ROOM').trigger('click')
+    await flushPromises()
+    await flagButtonOf(w, 'Room Bag').trigger('click')
+    await flushPromises()
+    const sent = calls.find((c) => c.action === 'set_flag')
+    expect(sent).toMatchObject({
+      sheet: 'room',
+      url: 'https://room.rakuten.co.jp/freddiefujiwara/222',
+      flagged: true,
+    })
+    expect(sent.row).toBeUndefined()
+  })
+
+  it('unflags an already flagged room item', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'ROOM').trigger('click')
+    await flushPromises()
+    await flagButtonOf(w, 'Room Lamp').trigger('click')
+    await flushPromises()
+    expect(calls.find((c) => c.action === 'set_flag')).toMatchObject({
+      sheet: 'room',
+      url: 'https://room.rakuten.co.jp/freddiefujiwara/111',
+      flagged: false,
+    })
+  })
+
+  it('narrows the list to flagged entries with the 整理対象のみ filter', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'ROOM').trigger('click')
+    await flushPromises()
+    const filter = w
+      .findAll('.builder-tab')
+      .find((t) => t.text() === '整理対象のみ')
+    await filter.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Room Lamp')
+    expect(w.text()).not.toContain('Room Bag')
+    const all = w.findAll('.builder-tab').find((t) => t.text() === 'すべて')
+    await all.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Room Bag')
+  })
+
+  it('flags a subscription by row and shows its badge', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'サブスク').trigger('click')
+    await flushPromises()
+    expect(w.findAll('.flag-badge')).toHaveLength(1)
+    await flagButtonOf(w, 'DAZN').trigger('click')
+    await flushPromises()
+    expect(calls.find((c) => c.action === 'set_flag')).toMatchObject({
+      sheet: 'subscriptions',
+      row: 3,
+      flagged: true,
+    })
+  })
+
+  it('shows the server error when flagging fails', async () => {
+    handler = (body) =>
+      body.action === 'set_flag' ? { ok: false, error: 'flag boom' } : defaultHandler(body)
+    const w = await mountApp()
+    await signIn()
+    await flagButtonOf(w, 'Workman A').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('flag boom')
+  })
+
+  it('shows a generic notice when flagging fails without a reason', async () => {
+    handler = (body) => (body.action === 'set_flag' ? { ok: false } : defaultHandler(body))
+    const w = await mountApp()
+    await signIn()
+    await flagButtonOf(w, 'Workman A').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('フラグの更新に失敗しました')
+  })
+
+  it('opens the create form on a writable sheet from the ROOM tab', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'ROOM').trigger('click')
+    await flushPromises()
+    await w.findAll('.main-tab')[1].trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('新しいアイテム')
+    const formPills = w.findAll('.sheet-tabs .builder-tab')
+    expect(formPills.map((t) => t.text())).toEqual(['ワークマン', 'ダイソー', 'その他', 'サブスク'])
+    expect(calls[calls.length - 1]).toMatchObject({ action: 'list_items', sheet: 'workman' })
   })
 })

@@ -10,17 +10,17 @@ describe('constants', () => {
     expect(GOOGLE_CLIENT_ID).toContain('.apps.googleusercontent.com')
   })
 
-  it('lists the hand-edited sheets, never the ROOM-owned room sheet', () => {
-    expect(SHEETS.map((s) => s.key)).toEqual(['workman', 'variety', 'others', 'subscriptions'])
-    expect(SHEETS.map((s) => s.key)).not.toContain('room')
+  it('lists the sheets with the ROOM tab among them', () => {
+    expect(SHEETS.map((s) => s.key)).toEqual(['workman', 'variety', 'others', 'room', 'subscriptions'])
   })
 
   it('gives every sheet a short tab label for the one-row tab bar', () => {
-    expect(SHEETS.map((s) => s.tabLabel)).toEqual(['ワークマン', 'ダイソー', 'その他', 'サブスク'])
+    expect(SHEETS.map((s) => s.tabLabel)).toEqual(['ワークマン', 'ダイソー', 'その他', 'ROOM', 'サブスク'])
   })
 
-  it('marks the subscriptions sheet with its own kind', () => {
+  it('marks the subscriptions sheet and the read-only ROOM tab with their own kinds', () => {
     expect(sheetKind('subscriptions')).toBe('subscriptions')
+    expect(sheetKind('room')).toBe('room')
     expect(sheetKind('workman')).toBe('items')
     expect(sheetKind('unknown-key')).toBe('items')
   })

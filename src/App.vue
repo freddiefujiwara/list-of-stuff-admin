@@ -5,6 +5,7 @@ import { useAdmin } from './composables/useAdmin.js'
 import {
   emptyItem,
   emptySubscription,
+  filterFlagged,
   formFromItem,
   formFromSubscription,
   itemMeta,
@@ -35,6 +36,7 @@ const {
 } = admin
 
 const tab = ref('list')
+const flagOnly = ref(false)
 const themeButton = ref(null)
 const theme = ref(resolveTheme(localStorage.getItem(THEME_KEY)))
 
@@ -79,7 +81,14 @@ const genreOptions = computed(() => {
   return options
 })
 
-const openCreate = () => {
+// The create/edit form covers only the writable sheets; the ROOM
+// tab is read-only, so it never appears among the form's sheets.
+const formSheets = SHEETS.filter((sheet) => sheet.kind !== 'room')
+
+const openCreate = async () => {
+  if (sheetKind(currentSheet.value) === 'room') {
+    await admin.selectSheet(formSheets[0].key)
+  }
   editingRow.value = null
   form.value = blankForm()
   if (!isSubForm.value && genres.value.length > 0) {
@@ -167,6 +176,20 @@ const removeFromForm = async () => {
     tab.value = 'list'
   } else {
     formStatus.value = res.error || '削除に失敗しました'
+  }
+}
+
+// The list filter: 整理対象のみ narrows the current sheet's rows to
+// the flagged ones.
+const visibleItems = computed(() => filterFlagged(items.value, flagOnly.value))
+const visibleSubscriptions = computed(() =>
+  filterFlagged(subscriptions.value, flagOnly.value),
+)
+
+const toggleFlag = async (entry) => {
+  const res = await admin.setFlag(entry, !entry.flag)
+  if (!res.ok) {
+    notice.value = res.error || 'フラグの更新に失敗しました'
   }
 }
 
@@ -362,12 +385,34 @@ const onLogout = () => {
             {{ sheet.tabLabel }}
           </button>
         </div>
+        <div class="builder-tabs" role="tablist" aria-label="表示フィルター">
+          <button
+            type="button"
+            class="builder-tab"
+            :class="{ active: !flagOnly }"
+            role="tab"
+            :aria-selected="!flagOnly"
+            @click="flagOnly = false"
+          >
+            すべて
+          </button>
+          <button
+            type="button"
+            class="builder-tab"
+            :class="{ active: flagOnly }"
+            role="tab"
+            :aria-selected="flagOnly"
+            @click="flagOnly = true"
+          >
+            整理対象のみ
+          </button>
+        </div>
         <div v-if="loading" class="alarm-row">
           <span class="meta">読み込み中…</span>
         </div>
         <template v-else>
         <div v-if="sheetKind(currentSheet) !== 'subscriptions'">
-          <div v-for="item in items" :key="item.row" class="alarm-row">
+          <div v-for="item in visibleItems" :key="item.row" class="alarm-row">
             <div class="item-main">
               <img
                 class="item-thumb"
@@ -377,12 +422,24 @@ const onLogout = () => {
                 @error="onThumbError"
               />
               <div>
-                <div class="item-title">{{ item.title }}</div>
+                <div class="item-title">{{ item.title }}<span v-if="item.flag" class="flag-badge">整理対象</span></div>
                 <div class="alarm-commands">{{ itemMeta(item) }}</div>
                 <div v-if="item.url" class="alarm-commands">{{ item.url }}</div>
               </div>
             </div>
             <div class="row-actions">
+              <button
+                type="button"
+                class="icon-btn"
+                :class="{ active: Boolean(item.flag) }"
+                title="整理対象"
+                aria-label="整理対象フラグ"
+                :aria-pressed="Boolean(item.flag)"
+                @click="toggleFlag(item)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+              </button>
+              <template v-if="sheetKind(currentSheet) !== 'room'">
               <button
                 type="button"
                 class="icon-btn"
@@ -401,20 +458,32 @@ const onLogout = () => {
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
+              </template>
             </div>
           </div>
         </div>
         <div v-else>
-          <div v-for="sub in subscriptions" :key="sub.row" class="alarm-row">
+          <div v-for="sub in visibleSubscriptions" :key="sub.row" class="alarm-row">
             <div class="item-main">
               <div>
-                <div class="item-title">{{ sub.service }}</div>
+                <div class="item-title">{{ sub.service }}<span v-if="sub.flag" class="flag-badge">整理対象</span></div>
                 <div v-if="sub.purpose" class="alarm-commands">{{ sub.purpose }}</div>
                 <div class="alarm-commands">{{ subscriptionCost(sub) }}</div>
                 <div v-if="sub.url" class="alarm-commands">{{ sub.url }}</div>
               </div>
             </div>
             <div class="row-actions">
+              <button
+                type="button"
+                class="icon-btn"
+                :class="{ active: Boolean(sub.flag) }"
+                title="整理対象"
+                aria-label="整理対象フラグ"
+                :aria-pressed="Boolean(sub.flag)"
+                @click="toggleFlag(sub)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+              </button>
               <button
                 type="button"
                 class="icon-btn"
@@ -444,7 +513,7 @@ const onLogout = () => {
         <h2 class="section-title">{{ formTitle }}</h2>
         <div v-if="editingRow === null" class="builder-tabs sheet-tabs" role="tablist" aria-label="シート">
           <button
-            v-for="sheet in SHEETS"
+            v-for="sheet in formSheets"
             :key="sheet.key"
             type="button"
             class="builder-tab"
