@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { FALLBACK_IMAGE_URL, GOOGLE_CLIENT_ID, SHEETS, sheetKind } from './constants/app.js'
+import { ALL_TAB, FALLBACK_IMAGE_URL, GOOGLE_CLIENT_ID, SHEETS, sheetKind } from './constants/app.js'
 import { useAdmin } from './composables/useAdmin.js'
 import {
   emptyItem,
@@ -29,6 +29,7 @@ const {
   currentSheet,
   items,
   subscriptions,
+  combined,
   genres,
   loading,
   listStatus,
@@ -85,8 +86,12 @@ const genreOptions = computed(() => {
 // tab is read-only, so it never appears among the form's sheets.
 const formSheets = SHEETS.filter((sheet) => sheet.kind !== 'room')
 
+// The list's tab bar: the cross-sheet すべて view first, then the
+// sheets themselves.
+const listSheets = [ALL_TAB, ...SHEETS]
+
 const openCreate = async () => {
-  if (sheetKind(currentSheet.value) === 'room') {
+  if (!formSheets.some((sheet) => sheet.key === currentSheet.value)) {
     await admin.selectSheet(formSheets[0].key)
   }
   editingRow.value = null
@@ -185,6 +190,7 @@ const visibleItems = computed(() => filterFlagged(items.value, flagOnly.value))
 const visibleSubscriptions = computed(() =>
   filterFlagged(subscriptions.value, flagOnly.value),
 )
+const visibleCombined = computed(() => filterFlagged(combined.value, flagOnly.value))
 
 const toggleFlag = async (entry) => {
   const res = await admin.setFlag(entry, !entry.flag)
@@ -200,11 +206,14 @@ const formTitle = computed(() => {
   return editingRow.value === null ? '新しいアイテム' : 'アイテムを編集'
 })
 
-const listTitle = computed(() =>
-  sheetKind(currentSheet.value) === 'subscriptions'
+const listTitle = computed(() => {
+  if (currentSheet.value === 'all') {
+    return 'すべての持ち物・サブスクリプション'
+  }
+  return sheetKind(currentSheet.value) === 'subscriptions'
     ? '登録中のサブスクリプション'
-    : '登録中のアイテム',
-)
+    : '登録中のアイテム'
+})
 
 const onThumbError = (event) => {
   const img = event.target
@@ -373,7 +382,7 @@ const onLogout = () => {
         <p v-if="email" class="meta">{{ email }}</p>
         <div class="builder-tabs sheet-tabs" role="tablist" aria-label="シート">
           <button
-            v-for="sheet in SHEETS"
+            v-for="sheet in listSheets"
             :key="sheet.key"
             type="button"
             class="builder-tab"
@@ -411,7 +420,46 @@ const onLogout = () => {
           <span class="meta">読み込み中…</span>
         </div>
         <template v-else>
-        <div v-if="sheetKind(currentSheet) !== 'subscriptions'">
+        <div v-if="currentSheet === 'all'">
+          <div v-for="entry in visibleCombined" :key="`${entry.sheet}:${entry.row}`" class="alarm-row">
+            <div v-if="entry.kind === 'subscriptions'" class="item-main">
+              <div>
+                <div class="item-title">{{ entry.service }}<span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
+                <div v-if="entry.purpose" class="alarm-commands">{{ entry.purpose }}</div>
+                <div class="alarm-commands">{{ subscriptionCost(entry) }}</div>
+                <div v-if="entry.url" class="alarm-commands">{{ entry.url }}</div>
+              </div>
+            </div>
+            <div v-else class="item-main">
+              <img
+                class="item-thumb"
+                :src="entry.image || FALLBACK_IMAGE_URL"
+                alt=""
+                loading="lazy"
+                @error="onThumbError"
+              />
+              <div>
+                <div class="item-title">{{ entry.title }}<span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
+                <div class="alarm-commands">{{ itemMeta(entry) }}</div>
+                <div v-if="entry.url" class="alarm-commands">{{ entry.url }}</div>
+              </div>
+            </div>
+            <div class="row-actions">
+              <button
+                type="button"
+                class="icon-btn"
+                :class="{ active: Boolean(entry.flag) }"
+                title="整理対象"
+                aria-label="整理対象フラグ"
+                :aria-pressed="Boolean(entry.flag)"
+                @click="toggleFlag(entry)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="sheetKind(currentSheet) !== 'subscriptions'">
           <div v-for="item in visibleItems" :key="item.row" class="alarm-row">
             <div class="item-main">
               <img

@@ -157,6 +157,90 @@ describe('useAdmin', () => {
     expect(calls.filter((c) => c.action === 'list_items').length).toBe(before + 1)
   })
 
+  it('loads the combined view across every sheet, tagging the source', async () => {
+    const SUBS = [{ row: 2, service: 'NHK', purpose: '', yearly: 100, monthly: 10, ratio: '', url: '', basis: 'yearly' }]
+    routeFetch((body) => {
+      if (body.action === 'list_items' && body.sheet === 'subscriptions')
+        return { ok: true, sheet: 'subscriptions', subscriptions: SUBS }
+      if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
+      return { ok: true }
+    })
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.selectSheet('all')
+    // workman, variety, others and room return ITEMS each; the
+    // subscriptions sheet returns SUBS.
+    expect(admin.combined.value).toHaveLength(5)
+    expect(admin.combined.value[0]).toMatchObject({ title: 'A', sheet: 'workman', kind: 'items' })
+    expect(admin.combined.value[3]).toMatchObject({ title: 'A', sheet: 'room', kind: 'room' })
+    expect(admin.combined.value[4]).toMatchObject({ service: 'NHK', sheet: 'subscriptions', kind: 'subscriptions' })
+    expect(admin.listStatus.value).toBe('5件')
+  })
+
+  it('reports the failing sheet error in the combined view', async () => {
+    routeFetch((body) => {
+      if (body.action === 'list_items' && body.sheet === 'variety') return { ok: false, error: 'variety boom' }
+      if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
+      return { ok: true }
+    })
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.selectSheet('all')
+    expect(admin.listStatus.value).toBe('variety boom')
+    expect(admin.combined.value).toEqual([])
+  })
+
+  it('falls back to a generic message when a combined sheet fails without a reason', async () => {
+    routeFetch((body) => {
+      if (body.action === 'list_items' && body.sheet === 'room') return { ok: false }
+      if (body.action === 'list_items' && body.sheet === 'subscriptions')
+        return { ok: true, sheet: 'subscriptions', subscriptions: [] }
+      if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
+      return { ok: true }
+    })
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.selectSheet('all')
+    expect(admin.listStatus.value).toBe('読み込みに失敗しました')
+  })
+
+  it('reports a generic failure when the combined load throws', async () => {
+    routeFetch((body) => {
+      if (body.action === 'list_items' && body.sheet === 'others') throw new Error('down')
+      if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
+      return { ok: true }
+    })
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    const res = await admin.selectSheet('all')
+    expect(res).toBeUndefined()
+    expect(admin.listStatus.value).toBe('読み込みに失敗しました')
+  })
+
+  it('flags an entry from the combined view through its own sheet', async () => {
+    const calls = routeFetch((body) => {
+      if (body.action === 'list_items' && body.sheet === 'subscriptions')
+        return { ok: true, sheet: 'subscriptions', subscriptions: [] }
+      if (body.action === 'list_items') return { ok: true, sheet: body.sheet, items: ITEMS }
+      return { ok: true, row: body.row || 4 }
+    })
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.selectSheet('all')
+    await admin.setFlag({ sheet: 'room', url: 'https://room.example/9' }, true)
+    expect(calls.filter((c) => c.action === 'set_flag')[0]).toMatchObject({
+      sheet: 'room',
+      url: 'https://room.example/9',
+      flagged: true,
+    })
+    await admin.setFlag({ sheet: 'subscriptions', row: 3 }, false)
+    expect(calls.filter((c) => c.action === 'set_flag')[1]).toMatchObject({
+      sheet: 'subscriptions',
+      row: 3,
+      flagged: false,
+    })
+  })
+
   it('surfaces a failed update without reloading', async () => {
     routeFetch((body) =>
       body.action === 'list_items'
