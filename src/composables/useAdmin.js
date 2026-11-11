@@ -85,18 +85,40 @@ export function useAdmin() {
     throw lastError
   }
 
+  // Per-sheet read cache for this session. A GAS read takes
+  // seconds, so each sheet is fetched at most once and tab
+  // switches re-serve the cached rows; mutations drop the
+  // affected sheet's entry before their reload. The cache lives
+  // in memory only, so a page reload always starts cold.
+  const sheetCache = new Map()
+  const readSheet = async (key) => {
+    if (sheetCache.has(key)) {
+      return sheetCache.get(key)
+    }
+    const res = await apiRead({ action: 'list_items', sheet: key })
+    if (res.ok) {
+      sheetCache.set(key, res)
+    }
+    return res
+  }
+
   // The cross-sheet view's rows: every sheet's entries in SHEETS
   // order, each tagged with the sheet it came from (and its kind),
   // so the list can show a source badge and route flag writes back
-  // to the owning sheet.
+  // to the owning sheet. The sheets are read in parallel: one at a
+  // time the view took as many slow GAS reads as there are sheets.
   const loadAll = async () => {
-    const entries = []
-    for (const sheet of SHEETS) {
-      const res = await apiRead({ action: 'list_items', sheet: sheet.key })
+    const results = await Promise.all(
+      SHEETS.map(async (sheet) => ({ sheet, res: await readSheet(sheet.key) })),
+    )
+    for (const { res } of results) {
       if (!res.ok) {
         listStatus.value = res.error || '読み込みに失敗しました'
         return res
       }
+    }
+    const entries = []
+    for (const { sheet, res } of results) {
       if (sheet.kind === 'subscriptions') {
         entries.push(
           ...res.subscriptions.map((sub) => ({ ...sub, sheet: sheet.key, kind: sheet.kind })),
@@ -134,7 +156,7 @@ export function useAdmin() {
     // stays blank meanwhile so the text appears only once.
     listStatus.value = ''
     try {
-      const res = await apiRead({ action: 'list_items', sheet: currentSheet.value })
+      const res = await readSheet(currentSheet.value)
       if (!res.ok) {
         listStatus.value = res.error || '読み込みに失敗しました'
         return res
@@ -170,6 +192,19 @@ export function useAdmin() {
 
   const selectSheet = async (key) => {
     currentSheet.value = key
+    await loadItems()
+  }
+
+  // The reload button: drop the cached rows and read again, so
+  // changes made outside this session (the morning ROOM sync, a
+  // direct edit in the spreadsheet) show up without reopening
+  // the page.
+  const reload = async () => {
+    if (currentSheet.value === 'all') {
+      sheetCache.clear()
+    } else {
+      sheetCache.delete(currentSheet.value)
+    }
     await loadItems()
   }
 
@@ -258,6 +293,7 @@ export function useAdmin() {
       item: form,
     })
     if (res.ok) {
+      sheetCache.delete(currentSheet.value)
       await loadItems()
     }
     return res
@@ -271,6 +307,7 @@ export function useAdmin() {
       item: form,
     })
     if (res.ok) {
+      sheetCache.delete(currentSheet.value)
       await loadItems()
     }
     return res
@@ -290,6 +327,7 @@ export function useAdmin() {
       body.row = entry.row
     }
     const res = await api(body)
+    sheetCache.delete(sheet)
     await loadItems()
     return res
   }
@@ -303,6 +341,7 @@ export function useAdmin() {
       sheet: currentSheet.value,
       row,
     })
+    sheetCache.delete(currentSheet.value)
     await loadItems()
     return res
   }
@@ -333,6 +372,7 @@ export function useAdmin() {
     loadItems,
     loadGenres,
     selectSheet,
+    reload,
     createItem,
     updateItem,
     deleteItem,

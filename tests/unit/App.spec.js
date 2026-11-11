@@ -794,7 +794,9 @@ describe('App tidy-up flags', () => {
     expect(w.text()).toContain('新しいアイテム')
     const formPills = w.findAll('.sheet-tabs .builder-tab')
     expect(formPills.map((t) => t.text())).toEqual(['ワークマン', 'ダイソー', 'その他', 'サブスク'])
-    expect(calls[calls.length - 1]).toMatchObject({ action: 'list_items', sheet: 'workman' })
+    // the form opens on the workman sheet (served from the cache,
+    // so no fresh read is issued for the switch)
+    expect(formPills.find((t) => t.text() === 'ワークマン').classes()).toContain('active')
   })
 })
 
@@ -879,7 +881,8 @@ describe('App cross-sheet view', () => {
     await w.findAll('.main-tab')[1].trigger('click')
     await flushPromises()
     expect(w.text()).toContain('新しいアイテム')
-    expect(calls[calls.length - 1]).toMatchObject({ action: 'list_items', sheet: 'workman' })
+    const formPills = w.findAll('.sheet-tabs .builder-tab')
+    expect(formPills.find((t) => t.text() === 'ワークマン').classes()).toContain('active')
   })
 })
 

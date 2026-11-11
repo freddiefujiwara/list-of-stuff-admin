@@ -184,6 +184,85 @@ describe('useAdmin', () => {
     expect(admin.listStatus.value).toBe('5件')
   })
 
+  it('serves a revisited sheet from the cache without another read', async () => {
+    const calls = routeFetch(okHandler)
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.selectSheet('variety')
+    await admin.selectSheet('workman')
+    const reads = calls.filter((c) => c.action === 'list_items')
+    expect(reads.filter((c) => c.sheet === 'workman')).toHaveLength(1)
+    expect(reads.filter((c) => c.sheet === 'variety')).toHaveLength(1)
+    expect(admin.items.value).toEqual(ITEMS)
+  })
+
+  it('reads the sheets in parallel for the combined view', async () => {
+    const pending = []
+    const calls = routeFetch((body) => {
+      if (body.action === 'exchange_session')
+        return { ok: true, session_token: 'sess-token', expires_at: '2026-12-11T00:00:00.000Z' }
+      if (body.action === 'list_items' && body.sheet === 'workman')
+        return { ok: true, sheet: 'workman', items: ITEMS }
+      if (body.action === 'list_items' && body.sheet === 'subscriptions')
+        return new Promise((resolve) => pending.push(() => resolve({ ok: true, sheet: 'subscriptions', subscriptions: [] })))
+      if (body.action === 'list_items')
+        return new Promise((resolve) => pending.push(() => resolve({ ok: true, sheet: body.sheet, items: ITEMS })))
+      return { ok: true }
+    })
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    const before = calls.filter((c) => c.action === 'list_items').length
+    const done = admin.selectSheet('all')
+    await new Promise((r) => setTimeout(r, 0))
+    // workman comes from the cache; the other four sheets' reads
+    // were all issued before any of them resolved
+    const issued = calls.filter((c) => c.action === 'list_items').slice(before)
+    expect(new Set(issued.map((c) => c.sheet))).toEqual(
+      new Set(['variety', 'others', 'room', 'subscriptions']),
+    )
+    expect(pending).toHaveLength(4)
+    pending.forEach((resolve) => resolve())
+    await done
+    expect(admin.combined.value).toHaveLength(4)
+  })
+
+  it('reload drops the cache for the current sheet only', async () => {
+    const calls = routeFetch(okHandler)
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.selectSheet('variety')
+    await admin.reload()
+    await admin.selectSheet('workman')
+    const reads = calls.filter((c) => c.action === 'list_items')
+    // variety was read twice (initial + reload), workman stayed cached
+    expect(reads.filter((c) => c.sheet === 'variety')).toHaveLength(2)
+    expect(reads.filter((c) => c.sheet === 'workman')).toHaveLength(1)
+  })
+
+  it('reload in the combined view drops every sheet', async () => {
+    const calls = routeFetch((body) => {
+      if (body.action === 'list_items' && body.sheet === 'subscriptions')
+        return { ok: true, sheet: 'subscriptions', subscriptions: [] }
+      return okHandler(body)
+    })
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.selectSheet('all')
+    const before = calls.filter((c) => c.action === 'list_items').length
+    await admin.reload()
+    const reads = calls.filter((c) => c.action === 'list_items').slice(before)
+    expect(new Set(reads.map((c) => c.sheet)).size).toBe(5)
+  })
+
+  it('refetches a sheet after a mutation despite the cache', async () => {
+    const calls = routeFetch(okHandler)
+    const admin = useAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    await admin.createItem({ title: 'B' })
+    const reads = calls.filter((c) => c.action === 'list_items' && c.sheet === 'workman')
+    expect(reads).toHaveLength(2)
+  })
+
   it('reports the failing sheet error in the combined view', async () => {
     routeFetch((body) => {
       if (body.action === 'list_items' && body.sheet === 'variety') return { ok: false, error: 'variety boom' }
