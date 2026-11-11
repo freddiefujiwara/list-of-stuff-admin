@@ -16,6 +16,7 @@ export function useAdmin() {
   const currentSheet = ref(SHEETS[0].key)
   const items = ref([])
   const subscriptions = ref([])
+  const combined = ref([])
   const genres = ref([])
   const loading = ref(false)
   const listStatus = ref('')
@@ -67,11 +68,50 @@ export function useAdmin() {
     throw lastError
   }
 
+  // The cross-sheet view's rows: every sheet's entries in SHEETS
+  // order, each tagged with the sheet it came from (and its kind),
+  // so the list can show a source badge and route flag writes back
+  // to the owning sheet.
+  const loadAll = async () => {
+    const entries = []
+    for (const sheet of SHEETS) {
+      const res = await apiRead({ action: 'list_items', sheet: sheet.key })
+      if (!res.ok) {
+        listStatus.value = res.error || '読み込みに失敗しました'
+        return res
+      }
+      if (sheet.kind === 'subscriptions') {
+        entries.push(
+          ...res.subscriptions.map((sub) => ({ ...sub, sheet: sheet.key, kind: sheet.kind })),
+        )
+      } else {
+        entries.push(
+          ...res.items.map((item) => ({ ...item, sheet: sheet.key, kind: sheet.kind })),
+        )
+      }
+    }
+    combined.value = entries
+    listStatus.value = `${entries.length}件`
+    return { ok: true }
+  }
+
   // Load the current sheet's rows: items for the item sheets,
   // subscriptions for the subscriptions sheet. While a load is in
   // flight, `loading` is true so the page can hide the previous
   // sheet's rows instead of leaving them on screen.
   const loadItems = async () => {
+    if (currentSheet.value === 'all') {
+      loading.value = true
+      listStatus.value = ''
+      try {
+        return await loadAll()
+      } catch (err) {
+        listStatus.value = '読み込みに失敗しました'
+        return { ok: false, error: String(err) }
+      } finally {
+        loading.value = false
+      }
+    }
     loading.value = true
     // The loading row in the list says 読み込み中…; the status line
     // stays blank meanwhile so the text appears only once.
@@ -188,8 +228,9 @@ export function useAdmin() {
   // delete, the list is always re-read afterwards so the screen
   // matches the stored flag even when the call failed partway.
   const setFlag = async (entry, flagged) => {
-    const body = { action: 'set_flag', sheet: currentSheet.value, flagged }
-    if (currentSheet.value === 'room') {
+    const sheet = entry.sheet || currentSheet.value
+    const body = { action: 'set_flag', sheet, flagged }
+    if (sheet === 'room') {
       body.url = entry.url
     } else {
       body.row = entry.row
@@ -224,6 +265,7 @@ export function useAdmin() {
     currentSheet,
     items,
     subscriptions,
+    combined,
     genres,
     loading,
     listStatus,

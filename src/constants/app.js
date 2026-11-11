@@ -21,3 +21,8 @@ export const SHEETS = [
 export function sheetKind(key) {
   return SHEETS.find((sheet) => sheet.key === key)?.kind ?? 'items'
 }
+
+// The cross-sheet view: a pseudo-tab in the list's tab bar that
+// shows every sheet's entries in one list. It is not a sheet —
+// nothing is ever written to it — so it stays out of SHEETS.
+export const ALL_TAB = { key: 'all', label: 'すべて', tabLabel: 'すべて' }

@@ -140,18 +140,17 @@ describe('App gate and sign-in', () => {
 })
 
 describe('App list interactions', () => {
-  it('shows the five sheet tabs with their short labels', async () => {
+  it('shows the cross-sheet tab and the five sheet tabs with their short labels', async () => {
     const w = await mountApp()
     await signIn()
     const tabs = w.findAll('.sheet-tabs .builder-tab')
-    expect(tabs.map((t) => t.text())).toEqual(['ワークマン', 'ダイソー', 'その他', 'ROOM', 'サブスク'])
+    expect(tabs.map((t) => t.text())).toEqual(['すべて', 'ワークマン', 'ダイソー', 'その他', 'ROOM', 'サブスク'])
   })
 
   it('switches sheets and reloads', async () => {
     const w = await mountApp()
     await signIn()
-    const pills = w.findAll('.builder-tab')
-    await pills[2].trigger('click')
+    await w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === 'その他').trigger('click')
     await flushPromises()
     expect(w.text()).toContain('Other C')
     expect(calls[calls.length - 1]).toMatchObject({ action: 'list_items', sheet: 'others' })
@@ -540,8 +539,7 @@ describe('App v2 coverage: fallbacks and remaining branches', () => {
   it('keeps a legacy genre selectable when editing', async () => {
     const w = await mountApp()
     await signIn()
-    const pills = w.findAll('.builder-tab')
-    await pills[2].trigger('click')
+    await w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === 'その他').trigger('click')
     await flushPromises()
     await w.findAll('button').find((b) => b.attributes('aria-label') === '編集').trigger('click')
     const select = w.find('#f-genre')
@@ -642,8 +640,7 @@ describe('App loading state', () => {
     const w = await mountApp()
     await signIn()
     expect(w.text()).toContain('Workman A')
-    const pills = w.findAll('.builder-tab')
-    await pills[2].trigger('click')
+    await w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === 'その他').trigger('click')
     expect(w.text().split('読み込み中…')).toHaveLength(2)
     expect(w.text()).not.toContain('Workman A')
     resolveOthers()
@@ -686,6 +683,9 @@ describe('App tidy-up flags', () => {
     const lampRow = w.findAll('.alarm-row').find((r) => r.text().includes('Room Lamp'))
     const labels = lampRow.findAll('button').map((b) => b.attributes('aria-label'))
     expect(labels).toEqual(['整理対象フラグ'])
+    expect(lampRow.classes()).toContain('flagged')
+    const bagRow = w.findAll('.alarm-row').find((r) => r.text().includes('Room Bag'))
+    expect(bagRow.classes()).not.toContain('flagged')
   })
 
   it('flags a room item by URL, never by row', async () => {
@@ -730,8 +730,8 @@ describe('App tidy-up flags', () => {
     await flushPromises()
     expect(w.text()).toContain('Room Lamp')
     expect(w.text()).not.toContain('Room Bag')
-    const all = w.findAll('.builder-tab').find((t) => t.text() === 'すべて')
-    await all.trigger('click')
+    const allTabs = w.findAll('.builder-tab').filter((t) => t.text() === 'すべて')
+    await allTabs[allTabs.length - 1].trigger('click')
     await flushPromises()
     expect(w.text()).toContain('Room Bag')
   })
@@ -780,6 +780,91 @@ describe('App tidy-up flags', () => {
     expect(w.text()).toContain('新しいアイテム')
     const formPills = w.findAll('.sheet-tabs .builder-tab')
     expect(formPills.map((t) => t.text())).toEqual(['ワークマン', 'ダイソー', 'その他', 'サブスク'])
+    expect(calls[calls.length - 1]).toMatchObject({ action: 'list_items', sheet: 'workman' })
+  })
+})
+
+describe('App cross-sheet view', () => {
+  const sheetPill = (w, label) =>
+    w.findAll('.sheet-tabs .builder-tab').find((t) => t.text() === label)
+  const flagButtonOf = (w, rowText) =>
+    w
+      .findAll('.alarm-row')
+      .find((r) => r.text().includes(rowText))
+      .findAll('button')
+      .find((b) => b.attributes('aria-label') === '整理対象フラグ')
+
+  it('lists every sheet in one list with source badges', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'すべて').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('すべての持ち物・サブスクリプション')
+    for (const text of ['Workman A', 'Other C', 'Room Lamp', 'Room Bag', 'NHK', 'DAZN']) {
+      expect(w.text()).toContain(text)
+    }
+    expect(w.findAll('.sheet-badge')).toHaveLength(7)
+    expect(w.findAll('.flag-badge')).toHaveLength(2)
+    expect(w.findAll('.alarm-row.flagged')).toHaveLength(2)
+    expect(w.text()).toContain('7件')
+    // the combined view is for viewing and flagging: no edit or
+    // delete buttons anywhere
+    const labels = w.findAll('button').map((b) => b.attributes('aria-label'))
+    expect(labels).not.toContain('編集')
+    expect(labels).not.toContain('削除')
+  })
+
+  it('flags entries through their own sheet from the combined view', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'すべて').trigger('click')
+    await flushPromises()
+    await flagButtonOf(w, 'Room Bag').trigger('click')
+    await flushPromises()
+    expect(calls.filter((c) => c.action === 'set_flag')[0]).toMatchObject({
+      sheet: 'room',
+      url: 'https://room.rakuten.co.jp/freddiefujiwara/222',
+      flagged: true,
+    })
+    await flagButtonOf(w, 'DAZN').trigger('click')
+    await flushPromises()
+    expect(calls.filter((c) => c.action === 'set_flag')[1]).toMatchObject({
+      sheet: 'subscriptions',
+      row: 3,
+      flagged: true,
+    })
+    await flagButtonOf(w, 'Workman A').trigger('click')
+    await flushPromises()
+    expect(calls.filter((c) => c.action === 'set_flag')[2]).toMatchObject({
+      sheet: 'workman',
+      row: 2,
+      flagged: true,
+    })
+  })
+
+  it('narrows the combined list to flagged entries across all sheets', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'すべて').trigger('click')
+    await flushPromises()
+    const filter = w.findAll('.builder-tab').find((t) => t.text() === '整理対象のみ')
+    await filter.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Room Lamp')
+    expect(w.text()).toContain('NHK')
+    expect(w.text()).not.toContain('Workman A')
+    expect(w.text()).not.toContain('Room Bag')
+    expect(w.text()).not.toContain('DAZN')
+  })
+
+  it('opens the create form on a writable sheet from the combined view', async () => {
+    const w = await mountApp()
+    await signIn()
+    await sheetPill(w, 'すべて').trigger('click')
+    await flushPromises()
+    await w.findAll('.main-tab')[1].trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('新しいアイテム')
     expect(calls[calls.length - 1]).toMatchObject({ action: 'list_items', sheet: 'workman' })
   })
 })
