@@ -9,8 +9,8 @@
 - `npm install`: install dependencies.
 - `npm run serve`: start the Vite dev server for local development.
 - `npm run build`: build production assets into `dist/`.
-- `npm test`: run Vitest in watch mode.
-- `npm run coverage`: run Vitest once and enforce 100% coverage (lines, functions, branches, statements).
+- `npm test`: run Vitest once and enforce 100% coverage (lines, functions, branches, statements).
+- `npm run coverage`: same as `npm test`.
 
 ## Coding Style & Naming Conventions
 - Use 2-space indentation and keep Vue SFC sections ordered `template`, `script`, `style`.
