@@ -348,6 +348,7 @@ const onLogout = () => {
           >
             ログアウト
           </button>
+          <template v-else></template>
         </div>
       </div>
     </header>
@@ -381,7 +382,9 @@ const onLogout = () => {
         >
           共有
         </button>
+        <template v-else></template>
       </nav>
+      <template v-else></template>
       <div id="status"></div>
 
       <section v-if="phase === 'gate'" class="table-wrap auth-gate">
@@ -390,6 +393,7 @@ const onLogout = () => {
         <div id="signin" class="google-login-button"></div>
         <p class="error">{{ gateError }}</p>
       </section>
+      <template v-else></template>
 
       <section v-if="phase === 'share-expired'" class="table-wrap">
         <h2 class="section-title">リンクの有効期限が切れています</h2>
@@ -397,6 +401,7 @@ const onLogout = () => {
           この一時アクセスリンクは失効しています。発行者に新しいリンクを依頼してください。
         </p>
       </section>
+      <template v-else></template>
 
       <section v-if="phase === 'ready' && tab === 'list'" class="table-wrap">
         <div class="section-head">
@@ -404,8 +409,11 @@ const onLogout = () => {
           <button class="theme-toggle" type="button" @click="admin.reload()">再読み込み</button>
         </div>
         <p v-if="notice" class="meta">{{ notice }}</p>
+        <template v-else></template>
         <p v-if="shareBanner" class="meta">{{ shareBanner }}</p>
+        <template v-else></template>
         <p v-if="email" class="meta">{{ email }}</p>
+        <template v-else></template>
         <div class="builder-tabs sheet-tabs" role="tablist" aria-label="シート">
           <button
             v-for="sheet in listSheets"
@@ -450,10 +458,12 @@ const onLogout = () => {
           <div v-for="entry in visibleCombined" :key="`${entry.sheet}:${entry.row}`" class="alarm-row" :class="{ flagged: Boolean(entry.flag) }">
             <div v-if="entry.kind === 'subscriptions'" class="item-main">
               <div>
-                <div class="item-title"><a v-if="entry.url" class="item-link" :href="entry.url" target="_blank" rel="noopener noreferrer">{{ entry.service }}</a><template v-else>{{ entry.service }}</template><span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
+                <div class="item-title"><a v-if="entry.url" class="item-link" :href="entry.url" target="_blank" rel="noopener noreferrer">{{ entry.service }}</a><template v-else>{{ entry.service }}</template><span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span><template v-else></template></div>
                 <div v-if="entry.purpose" class="alarm-commands">{{ entry.purpose }}</div>
+                <template v-else></template>
                 <div class="alarm-commands">{{ subscriptionCost(entry) }}</div>
                 <div v-if="entry.url" class="alarm-commands">{{ entry.url }}</div>
+                <template v-else></template>
               </div>
             </div>
             <div v-else class="item-main">
@@ -465,9 +475,10 @@ const onLogout = () => {
                 @error="onThumbError"
               />
               <div>
-                <div class="item-title"><a v-if="entry.url" class="item-link" :href="entry.url" target="_blank" rel="noopener noreferrer">{{ entry.title }}</a><template v-else>{{ entry.title }}</template><span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span></div>
+                <div class="item-title"><a v-if="entry.url" class="item-link" :href="entry.url" target="_blank" rel="noopener noreferrer">{{ entry.title }}</a><template v-else>{{ entry.title }}</template><span class="sheet-badge">{{ sheetLabel(entry.sheet) }}</span><span v-if="entry.flag" class="flag-badge">整理対象</span><template v-else></template></div>
                 <div class="alarm-commands">{{ itemMeta(entry) }}</div>
                 <div v-if="entry.url" class="alarm-commands">{{ entry.url }}</div>
+                <template v-else></template>
               </div>
             </div>
             <div class="row-actions">
@@ -492,6 +503,7 @@ const onLogout = () => {
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
               </button>
+              <template v-else></template>
               <button
                 v-if="entry.sheet !== 'room'"
                 type="button"
@@ -502,6 +514,7 @@ const onLogout = () => {
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
+              <template v-else></template>
             </div>
           </div>
         </div>
@@ -516,9 +529,10 @@ const onLogout = () => {
                 @error="onThumbError"
               />
               <div>
-                <div class="item-title"><a v-if="item.url" class="item-link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a><template v-else>{{ item.title }}</template><span v-if="item.flag" class="flag-badge">整理対象</span></div>
+                <div class="item-title"><a v-if="item.url" class="item-link" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a><template v-else>{{ item.title }}</template><span v-if="item.flag" class="flag-badge">整理対象</span><template v-else></template></div>
                 <div class="alarm-commands">{{ itemMeta(item) }}</div>
                 <div v-if="item.url" class="alarm-commands">{{ item.url }}</div>
+                <template v-else></template>
               </div>
             </div>
             <div class="row-actions">
@@ -553,6 +567,7 @@ const onLogout = () => {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
               </template>
+              <template v-else></template>
             </div>
           </div>
         </div>
@@ -560,10 +575,12 @@ const onLogout = () => {
           <div v-for="sub in visibleSubscriptions" :key="sub.row" class="alarm-row" :class="{ flagged: Boolean(sub.flag) }">
             <div class="item-main">
               <div>
-                <div class="item-title"><a v-if="sub.url" class="item-link" :href="sub.url" target="_blank" rel="noopener noreferrer">{{ sub.service }}</a><template v-else>{{ sub.service }}</template><span v-if="sub.flag" class="flag-badge">整理対象</span></div>
+                <div class="item-title"><a v-if="sub.url" class="item-link" :href="sub.url" target="_blank" rel="noopener noreferrer">{{ sub.service }}</a><template v-else>{{ sub.service }}</template><span v-if="sub.flag" class="flag-badge">整理対象</span><template v-else></template></div>
                 <div v-if="sub.purpose" class="alarm-commands">{{ sub.purpose }}</div>
+                <template v-else></template>
                 <div class="alarm-commands">{{ subscriptionCost(sub) }}</div>
                 <div v-if="sub.url" class="alarm-commands">{{ sub.url }}</div>
+                <template v-else></template>
               </div>
             </div>
             <div class="row-actions">
@@ -602,6 +619,7 @@ const onLogout = () => {
         </template>
         <p class="meta">{{ listStatus }}</p>
       </section>
+      <template v-else></template>
 
       <section v-if="phase === 'ready' && tab === 'form'" class="table-wrap">
         <h2 class="section-title">{{ formTitle }}</h2>
@@ -680,15 +698,18 @@ const onLogout = () => {
             <button v-if="editingRow !== null" class="theme-toggle" type="button" @click="removeFromForm">
               削除する
             </button>
+            <template v-else></template>
             <button v-if="editingRow !== null" class="theme-toggle" type="button" @click="cancelEdit">
               編集をやめる
             </button>
+            <template v-else></template>
             <button class="post-button" type="button" :disabled="saving" @click="submit">
               {{ editingRow === null ? '登録する' : '更新する' }}
             </button>
           </span>
         </div>
       </section>
+      <template v-else></template>
 
       <section v-if="phase === 'ready' && tab === 'share' && !isShareSession" class="table-wrap">
         <h2 class="section-title">一時アクセスリンク</h2>
@@ -718,6 +739,7 @@ const onLogout = () => {
           </p>
         </div>
       </section>
+      <template v-else></template>
     </main>
   </div>
 </template>
