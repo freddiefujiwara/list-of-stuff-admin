@@ -20,8 +20,5 @@
     "vite": "^5.4.8",
     "vitest": "^4.0.17",
     "vue": "^3.4.38"
-  },
-  "dependencies": {
-    "web-vitals": "^4.2.4"
   }
 }
