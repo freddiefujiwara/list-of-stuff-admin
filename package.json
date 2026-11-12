@@ -8,8 +8,7 @@
     "test": "vitest",
     "coverage": "vitest run --coverage",
     "build:staging": "vite build --mode staging --outDir dist-staging && cp dist-staging/index.html dist-staging/404.html",
-    "test:staging": "playwright test e2e/staging.check.js",
-    "test:smoke": "playwright test e2e/smoke.check.js"
+    "test:staging": "playwright test e2e/staging.check.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
